@@ -1,0 +1,174 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8">
+        <div class="glass p-5">
+            <h2 class="mb-4 text-center">Analyze Chest X-Ray</h2>
+            <p class="text-muted text-center mb-5">Upload a strict frontal Chest X-ray image (PA or AP view) for
+                AI-powered pneumonia diagnosis and Grad-CAM visualization.</p>
+
+            <form method="POST" action="" enctype="multipart/form-data" id="uploadForm">
+
+                <h5 class="mb-3 border-bottom pb-2 border-secondary"><i
+                        class="fa-solid fa-user-injured me-2 text-primary"></i>1. Patient Information</h5>
+                <div class="row mb-4">
+                    <div class="col-md-6 mb-3 text-start">
+                        <label for="patient_name" class="form-label text-muted small fw-bold">Full Name</label>
+                        <input type="text" class="form-control bg-dark text-light border-secondary" id="patient_name"
+                            name="patient_name" required placeholder="John Doe">
+                    </div>
+                    <div class="col-md-3 mb-3 text-start">
+                        <label for="patient_age" class="form-label text-muted small fw-bold">Age</label>
+                        <input type="number" class="form-control bg-dark text-light border-secondary" id="patient_age"
+                            name="patient_age" required min="0" max="130" placeholder="52">
+                    </div>
+                    <div class="col-md-3 mb-3 text-start">
+                        <label for="patient_gender" class="form-label text-muted small fw-bold">Gender</label>
+                        <select class="form-select bg-dark text-light border-secondary" id="patient_gender"
+                            name="patient_gender" required>
+                            <option value="">Select...</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3 text-start">
+                        <label for="patient_symptoms" class="form-label text-muted small fw-bold">Primary
+                            Symptoms</label>
+                        <input type="text" class="form-control bg-dark text-light border-secondary"
+                            id="patient_symptoms" name="patient_symptoms" required
+                            placeholder="E.g. Fever, continuous cough, chest pain">
+                    </div>
+                    <div class="col-md-6 mb-3 text-start">
+                        <label for="patient_smoking_history" class="form-label text-muted small fw-bold">Smoking
+                            History</label>
+                        <select class="form-select bg-dark text-light border-secondary" id="patient_smoking_history"
+                            name="patient_smoking_history" required>
+                            <option value="">Select Status...</option>
+                            <option value="Never Smoked">Never Smoked</option>
+                            <option value="Former Smoker">Former Smoker</option>
+                            <option value="Current Smoker">Current Smoker</option>
+                        </select>
+                    </div>
+                </div>
+
+                <h5 class="mb-3 border-bottom pb-2 border-secondary"><i
+                        class="fa-solid fa-x-ray me-2 text-primary"></i>2. Upload X-Ray Scan</h5>
+                <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                    <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+                    <h4>Drag & Drop your X-ray here</h4>
+                    <p class="text-muted">or click to browse from your computer</p>
+                    <p class="text-sm text-secondary mt-2">Supports JPG, JPEG, PNG (Max: 5MB)</p>
+
+                    <input type="file" id="fileInput" name="file" class="d-none" accept=".jpg,.jpeg,.png">
+                </div>
+
+                <div id="previewContainer" class="mt-4 text-center d-none">
+                    <div class="position-relative d-inline-block">
+                        <img id="imagePreview" src="" alt="Preview" class="img-fluid rounded shadow"
+                            style="max-height: 300px; border: 2px solid rgba(255,255,255,0.2);">
+                        <button type="button"
+                            class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 rounded-circle"
+                            id="removeBtn" style="width: 30px; height: 30px; padding: 0;">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <p class="mt-2 text-primary fw-bold" id="fileNameDisplay"></p>
+                </div>
+
+                <div class="text-center mt-5">
+                    <button type="submit" id="submitBtn" class="btn btn-primary btn-lg px-5 disabled">
+                        <i class="fa-solid fa-microscope me-2"></i> Run Inference Analysis
+                    </button>
+                    <div id="loadingIndicator" class="mt-3 d-none">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Running ResNet50 Inference & Generating Grad-CAM...</p>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const uploadForm = document.getElementById('uploadForm');
+    const previewContainer = document.getElementById('previewContainer');
+    const imagePreview = document.getElementById('imagePreview');
+    const removeBtn = document.getElementById('removeBtn');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    const submitBtn = document.getElementById('submitBtn');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+
+    // Drag & Drop Handlers
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        let dt = e.dataTransfer;
+        let files = dt.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            handleFile(files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', function () {
+        if (this.files.length > 0) {
+            handleFile(this.files[0]);
+        }
+    });
+
+    function handleFile(file) {
+        if (!file.type.match('image.*')) {
+            alert('Please select an image file (JPG, PNG)');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            imagePreview.src = e.target.result;
+            fileNameDisplay.textContent = file.name;
+            dropZone.classList.add('d-none');
+            previewContainer.classList.remove('d-none');
+            submitBtn.classList.remove('disabled');
+        }
+        reader.readAsDataURL(file);
+    }
+
+    removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        fileInput.value = '';
+        dropZone.classList.remove('d-none');
+        previewContainer.classList.add('d-none');
+        submitBtn.classList.add('disabled');
+    });
+
+    uploadForm.addEventListener('submit', () => {
+        if (!submitBtn.classList.contains('disabled')) {
+            submitBtn.classList.add('d-none');
+            loadingIndicator.classList.remove('d-none');
+        }
+    });
+</script>
+{% endblock %}

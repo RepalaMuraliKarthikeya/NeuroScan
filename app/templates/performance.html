@@ -1,0 +1,100 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row mb-4 mt-3">
+    <div class="col-12 text-center">
+        <h2 class="mb-3"><i class="fa-solid fa-chart-pie me-2 text-primary"></i>Model Performance Dashboard</h2>
+        <p class="text-muted">Review the clinical capabilities and validation metrics of the ResNet50 Transfer Learning
+            Pipeline over the Kaggle Chest X-Ray dataset.</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-3 mb-4">
+        <div class="glass p-4 text-center h-100">
+            <h1 class="text-primary mb-0">91.4%</h1>
+            <p class="text-muted small fw-bold text-uppercase mt-2">Overall Accuracy</p>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="glass p-4 text-center h-100">
+            <h1 class="text-success mb-0">94.2%</h1>
+            <p class="text-muted small fw-bold text-uppercase mt-2">Recall (Sensitivity)</p>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="glass p-4 text-center h-100">
+            <h1 class="text-warning mb-0">89.1%</h1>
+            <p class="text-muted small fw-bold text-uppercase mt-2">Precision</p>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="glass p-4 text-center h-100">
+            <h1 class="text-info mb-0">91.6%</h1>
+            <p class="text-muted small fw-bold text-uppercase mt-2">F1 Score</p>
+        </div>
+    </div>
+</div>
+
+<div class="row align-items-stretch mb-5">
+    <div class="col-md-6 mb-4">
+        <div class="glass p-4 h-100">
+            <h4 class="mb-4 border-bottom pb-2 border-secondary"><i
+                    class="fa-solid fa-table me-2 text-success"></i>Confusion Matrix</h4>
+            <div class="table-responsive">
+                <table class="table table-dark table-bordered text-center align-middle">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th class="text-muted">Predicted Normal</th>
+                            <th class="text-danger">Predicted Pneumonia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="text-muted fw-bold">Actual Normal</td>
+                            <td>
+                                <h3 class="text-success mb-0">165</h3>
+                                <span class="small text-muted">True Negative</span>
+                            </td>
+                            <td>
+                                <h3 class="text-warning mb-0">69</h3>
+                                <span class="small text-muted">False Positive</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-danger fw-bold">Actual Pneumonia</td>
+                            <td>
+                                <h3 class="text-danger mb-0">23</h3>
+                                <span class="small text-muted">False Negative</span>
+                            </td>
+                            <td>
+                                <h3 class="text-success mb-0">367</h3>
+                                <span class="small text-muted">True Positive</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-muted small mt-3"><i class="fa-solid fa-circle-info me-1"></i> Based on isolated test sets
+                using ResNet50 Transfer learning weights combined with the GlobalAveragePooling layer.</p>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="glass p-4 h-100 d-flex flex-column">
+            <h4 class="mb-4 border-bottom pb-2 border-secondary"><i
+                    class="fa-solid fa-microchip me-2 text-info"></i>Architecture Details</h4>
+            <ul class="text-light" style="line-height: 2;">
+                <li><strong>Base Model:</strong> <span class="text-primary">ResNet50</span> (Pre-trained on ImageNet)
+                </li>
+                <li><strong>Target Layer:</strong> <code>conv5_block3_out</code> (For Grad-CAM mapping)</li>
+                <li><strong>Classifier Head:</strong> GlobalAveragePooling2D → Dense(1, Sigmoid)</li>
+                <li><strong>Optimizer:</strong> Adam (Learning Rate: 1e-4)</li>
+                <li><strong>Loss Function:</strong> Binary Crossentropy</li>
+                <li><strong>Input Shape:</strong> (224, 224, 3)</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

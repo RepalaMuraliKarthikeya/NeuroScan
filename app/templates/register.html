@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 col-lg-5">
+        <div class="glass p-5">
+            <div class="text-center mb-4">
+                <i class="fa-solid fa-user-plus fa-3x text-primary mb-3"></i>
+                <h2>Create Account</h2>
+                <p class="text-muted">Join to start detecting pneumonia</p>
+            </div>
+
+            <form method="POST" action="">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0 border-secondary text-muted">
+                            <i class="fa-regular fa-user"></i>
+                        </span>
+                        <input type="text" class="form-control border-start-0 ps-0" id="username" name="username"
+                            required placeholder="Dr. Smith">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email Address</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0 border-secondary text-muted">
+                            <i class="fa-regular fa-envelope"></i>
+                        </span>
+                        <input type="email" class="form-control border-start-0 ps-0" id="email" name="email" required
+                            placeholder="you@hospital.org">
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0 border-secondary text-muted">
+                            <i class="fa-solid fa-lock"></i>
+                        </span>
+                        <input type="password" class="form-control border-start-0 ps-0" id="password" name="password"
+                            required placeholder="••••••••">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-2">Create Account <i
+                        class="fa-solid fa-check ms-2"></i></button>
+            </form>
+
+            <div class="text-center mt-4">
+                <p class="text-muted text-sm">Already have an account? <a href="{{ url_for('auth.login') }}"
+                        class="text-primary text-decoration-none fw-bold">Sign In</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,434 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-12 mb-4">
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-light btn-sm">
+            <i class="fa-solid fa-arrow-left me-2"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="row align-items-stretch" id="dashboardContent">
+    <!-- Patient Info Row -->
+    <div class="col-12 mb-4">
+        <div class="glass p-4 text-start">
+            <h4 class="mb-3 border-bottom pb-2 border-secondary d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-user me-2 text-primary"></i>Patient Clinical Profile</span>
+                <button onclick="downloadReport()" class="btn btn-sm btn-success">
+                    <i class="fa-solid fa-file-pdf me-2"></i> Download Report
+                </button>
+            </h4>
+            <div class="row">
+                <div class="col-md-3 mb-2"><strong>Name:</strong> <span class="text-light">{{ prediction.patient_name
+                        }}</span></div>
+                <div class="col-md-2 mb-2"><strong>Age:</strong> <span class="text-light">{{ prediction.patient_age
+                        }}</span></div>
+                <div class="col-md-3 mb-2"><strong>Gender:</strong> <span class="text-light">{{
+                        prediction.patient_gender }}</span></div>
+                <div class="col-md-4 mb-2"><strong>Smoking History:</strong> <span class="text-light">{{
+                        prediction.patient_smoking_history }}</span></div>
+                <div class="col-12 mt-2"><strong>Symptoms:</strong> <span class="text-light">{{
+                        prediction.patient_symptoms }}</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Summary Card -->
+    <div class="col-lg-4 mb-4">
+        <div class="glass p-4 h-100 d-flex flex-column text-center">
+            <h3 class="mb-4 d-flex justify-content-center align-items-center">
+                <i class="fa-solid fa-stethoscope me-3 text-primary"></i>
+                AI Diagnosis
+            </h3>
+
+            <div class="my-auto">
+                {% if prediction.prediction_result == 'Pneumonia' %}
+                <div class="badge badge-pneumonia fs-4 py-3 px-4 rounded-pill mb-4 w-100 shadow-sm">
+                    <i class="fa-solid fa-triangle-exclamation me-2"></i> {{ prediction.severity | upper }} PNEUMONIA
+                </div>
+                <p class="text-muted text-start mt-3">
+                    The AI model has detected opacities consistent with pneumonia in the provided chest X-ray.
+                    Based on the heat map coverage, the overall severity is estimated as <strong class="text-danger">{{
+                        prediction.severity }}</strong>.
+                </p>
+                {% else %}
+                <div class="badge badge-normal fs-4 py-3 px-4 rounded-pill mb-4 w-100 shadow-sm">
+                    <i class="fa-solid fa-circle-check me-2"></i> NORMAL (NO PNEUMONIA)
+                </div>
+                <p class="text-muted text-start mt-3">
+                    The AI model indicates normal lung fields with no obvious signs of consolidation or pneumonia.
+                </p>
+                {% endif %}
+
+                <div class="glass p-3 mt-4 text-start">
+                    <p class="mb-2 text-muted fw-bold">Confidence Score</p>
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h2
+                            class="m-0 mb-1 {{ 'text-danger' if prediction.prediction_result == 'Pneumonia' else 'text-success' }}">
+                            {{ "%.1f"|format(prediction.confidence) }}%
+                        </h2>
+                    </div>
+                    <div class="progress mb-3" style="height: 10px; background-color: rgba(255,255,255,0.05);">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated {{ 'bg-danger' if prediction.prediction_result == 'Pneumonia' else 'bg-success' }}"
+                            role="progressbar" style="width: {{ prediction.confidence }}%"></div>
+                    </div>
+
+                    {% if prediction.prediction_result == 'Pneumonia' %}
+                    <p class="mb-2 mt-4 text-muted fw-bold">Affected Lung Area</p>
+                    <div class="row align-items-center mb-2">
+                        <div class="col-4 text-end small fw-bold">Right Lung:</div>
+                        <div class="col-6">
+                            <div class="progress" style="height: 6px; background: rgba(255,255,255,0.05);">
+                                <div class="progress-bar bg-warning"
+                                    style="width: {{ prediction.right_lung_affected }}%"></div>
+                            </div>
+                        </div>
+                        <div class="col-2 small text-warning">{{ "%.0f"|format(prediction.right_lung_affected) }}%</div>
+                    </div>
+                    <div class="row align-items-center mb-2">
+                        <div class="col-4 text-end small fw-bold">Left Lung:</div>
+                        <div class="col-6">
+                            <div class="progress" style="height: 6px; background: rgba(255,255,255,0.05);">
+                                <div class="progress-bar bg-warning"
+                                    style="width: {{ prediction.left_lung_affected }}%"></div>
+                            </div>
+                        </div>
+                        <div class="col-2 small text-warning">{{ "%.0f"|format(prediction.left_lung_affected) }}%</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mt-4 pt-4 border-top border-secondary text-start text-muted small">
+                <p class="mb-1"><i class="fa-regular fa-calendar me-2"></i> Analyzed on: {{
+                    prediction.date_posted.strftime('%Y-%m-%d %H:%M') }}</p>
+                <p class="mb-0"><i class="fa-solid fa-file-image me-2"></i> File: {{ prediction.image_filename }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Viewing Card -->
+    <div class="col-lg-8 mb-4">
+        <div class="glass p-4 h-100">
+            <h3 class="mb-4">
+                <i class="fa-solid fa-layer-group me-2 text-primary"></i>
+                Grad-CAM Explainability
+            </h3>
+
+            <!-- Navigation Tabs for Original vs Heatmap -->
+            <ul class="nav nav-tabs border-secondary mb-4" id="imageTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active rounded-top" id="heatmap-tab" data-bs-toggle="tab"
+                        data-bs-target="#heatmap" type="button" role="tab" aria-selected="true">
+                        <i class="fa-solid fa-fire me-1 text-warning"></i> AI Heatmap (Grad-CAM)
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link rounded-top" id="original-tab" data-bs-toggle="tab"
+                        data-bs-target="#original" type="button" role="tab" aria-selected="false">
+                        <i class="fa-regular fa-image me-1"></i> Original X-Ray
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link rounded-top" id="side-by-side-tab" data-bs-toggle="tab"
+                        data-bs-target="#side-by-side" type="button" role="tab" aria-selected="false">
+                        <i class="fa-solid fa-columns me-1"></i> Side-by-Side
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tab Contents -->
+            <div class="tab-content text-center" id="imageTabsContent"
+                style="min-height: 400px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); border-radius: 0.5rem;">
+
+                <!-- Heatmap View -->
+                <div class="tab-pane fade show active w-100 h-100 p-3" id="heatmap" role="tabpanel">
+                    <img src="{{ url_for('static', filename='heatmaps/' + prediction.heatmap_filename) }}"
+                        class="img-fluid rounded shadow" style="max-height: 500px;" alt="Grad-CAM Heatmap">
+                    <p class="text-muted mt-3 small"><i class="fa-solid fa-circle-info"></i> Warm colors (red/yellow)
+                        indicate regions the CNN focused on to make its diagnosis.</p>
+                </div>
+
+                <!-- Original Image View -->
+                <div class="tab-pane fade w-100 h-100 p-3" id="original" role="tabpanel">
+                    <img src="{{ url_for('static', filename='uploads/' + prediction.image_filename) }}"
+                        class="img-fluid rounded shadow" style="max-height: 500px;" alt="Original X-Ray">
+                </div>
+
+                <!-- Side-by-Side View -->
+                <div class="tab-pane fade w-100 h-100 p-3" id="side-by-side" role="tabpanel">
+                    <div class="row justify-content-center">
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-muted mb-2">Original</h6>
+                            <img src="{{ url_for('static', filename='uploads/' + prediction.image_filename) }}"
+                                class="img-fluid rounded shadow" style="max-height: 400px;" alt="Original">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-muted mb-2">Grad-CAM Overlay</h6>
+                            <img src="{{ url_for('static', filename='heatmaps/' + prediction.heatmap_filename) }}"
+                                class="img-fluid rounded shadow" style="max-height: 400px;" alt="Heatmap">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Precautions & Next Steps -->
+    <div class="col-12 mt-2 mb-4">
+        <div class="glass p-4 text-start">
+            <h4 class="mb-4 border-bottom pb-2 border-secondary"><i
+                    class="fa-solid fa-hand-holding-medical me-2 text-primary"></i>Recommendations & Next Steps</h4>
+            {% if prediction.prediction_result == 'Pneumonia' %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <h5 class="text-danger"><i class="fa-solid fa-triangle-exclamation me-2"></i>Precautions</h5>
+                    <ul class="text-muted mt-3" style="line-height: 1.8;">
+                        {% if prediction.severity == 'Severe' %}
+                        <li>Immediate medical isolation is strongly advised due to the severe nature of the infection.
+                        </li>
+                        <li>Constant monitoring of oxygen saturation (SpO2) and vitals is critical.</li>
+                        <li>Absolute bed rest is required; avoid any physical exertion.</li>
+                        {% elif prediction.severity == 'Moderate' %}
+                        <li>Isolate yourself from vulnerable individuals to prevent potential transmission.</li>
+                        <li>Monitor your temperature and oxygen saturation (SpO2) regularly.</li>
+                        <li>Stay hydrated and get plenty of rest to support your immune system.</li>
+                        <li>Avoid smoking and secondhand smoke immediately.</li>
+                        {% else %}
+                        <li>Rest, stay hydrated, and monitor your symptoms closely.</li>
+                        <li>Maintain good hygiene and wash your hands frequently.</li>
+                        <li>Avoid strenuous activities until cleared by a doctor.</li>
+                        {% endif %}
+                    </ul>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <h5 class="text-warning"><i class="fa-solid fa-user-doctor me-2"></i>Next Steps</h5>
+                    <ul class="text-muted mt-3" style="line-height: 1.8;">
+                        {% if prediction.severity == 'Severe' %}
+                        <li><strong>Seek emergency medical care immediately.</strong></li>
+                        <li>Hospitalization or intensive care may be required based on clinical evaluation.</li>
+                        <li>Intravenous antibiotics or oxygen therapy might be necessary.</li>
+                        {% elif prediction.severity == 'Moderate' %}
+                        <li><strong>Consult a Pulmonologist or General Physician promptly</strong> for a definitive
+                            clinical diagnosis.</li>
+                        <li>Provide this AI Medical Report and your original X-ray to your doctor.</li>
+                        <li>Oral antibiotics or antiviral medication may be required.</li>
+                        {% else %}
+                        <li><strong>Schedule a routine outpatient appointment</strong> with your doctor to review these
+                            findings.</li>
+                        <li>Over-the-counter medication or basic prescription treatment may suffice.</li>
+                        <li>Provide this AI Medical Report as an assistive screening tool.</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+            {% else %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <h5 class="text-success"><i class="fa-solid fa-shield-heart me-2"></i>Precautions</h5>
+                    <ul class="text-muted mt-3" style="line-height: 1.8;">
+                        <li>Continue maintaining good hygiene and a healthy lifestyle.</li>
+                        <li>Avoid close contact with people who have active respiratory infections.</li>
+                        <li>Since you reported symptoms like '{{ prediction.patient_symptoms }}', monitor them closely.
+                        </li>
+                    </ul>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <h5 class="text-info"><i class="fa-solid fa-stethoscope me-2"></i>Next Steps</h5>
+                    <ul class="text-muted mt-3" style="line-height: 1.8;">
+                        <li>While the AI detected no clear signs of pneumonia, this is an assistive screening tool.</li>
+                        <li>If your symptoms persist or worsen, <strong>consult a doctor</strong> for a comprehensive
+                            checkup.</li>
+                        <li>Routine medical advice should be followed regarding your symptoms.</li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Hidden Printable Report Layout -->
+<div id="printableReport" class="d-none bg-white text-dark p-5"
+    style="width: 100%; max-width: 800px; margin: 0 auto; font-family: 'Segoe UI', Arial, sans-serif;">
+
+    <!-- Header -->
+    <div class="text-center mb-4 pb-3" style="border-bottom: 2px solid #ddd;">
+        <i class="fa-solid fa-heart-pulse mb-2" style="font-size: 2.5rem; color: #a0a0a0;"></i>
+        <h2 style="color: #27795a; margin-bottom: 5px; font-weight: 600;">NeuroScan Clinical Institute</h2>
+        <p style="color: #555; font-size: 0.9rem; margin-bottom: 0;">123 Innovation Drive, Silicon Valley, CA 94025 USA
+        </p>
+    </div>
+
+    <!-- Title -->
+    <h3 class="text-center fw-bold mb-4" style="color: #000; letter-spacing: 1px;">MEDICAL REPORT</h3>
+
+    <!-- Visit Info -->
+    <h5 style="color: #27795a; font-weight: 600; margin-bottom: 15px;">Visit Info</h5>
+    <div class="row text-dark mb-4" style="font-size: 0.95rem;">
+        <div class="col-6">
+            <div class="d-flex mb-2">
+                <span class="fw-bold" style="width: 150px;">Doctor's Name:</span>
+                <span>Dr. AI automated System</span>
+            </div>
+            <div class="d-flex mb-2">
+                <span class="fw-bold" style="width: 150px;">Specialization:</span>
+                <span>Pulmonology / Radiology</span>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="d-flex mb-2">
+                <span class="fw-bold" style="width: 150px;">Visit Date:</span>
+                <span>{{ prediction.date_posted.strftime('%d.%m.%Y') }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Patient Info -->
+    <h5 style="color: #27795a; font-weight: 600; margin-bottom: 15px;">Patient Info</h5>
+    <div class="row text-dark mb-4" style="font-size: 0.95rem;">
+        <div class="col-6">
+            <div class="d-flex mb-2">
+                <span class="fw-bold" style="width: 150px;">Full Name:</span>
+                <span>{{ prediction.patient_name }}</span>
+            </div>
+            <div class="d-flex mb-2">
+                <span class="fw-bold" style="width: 150px;">Gender:</span>
+                <span>{{ prediction.patient_gender }}</span>
+            </div>
+            <div class="d-flex mb-2">
+                <span class="fw-bold" style="width: 150px;">File Hash:</span>
+                <span>{{ prediction.image_filename[:10] }}...</span>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="d-flex mb-2">
+                <span class="fw-bold" style="width: 150px;">Age:</span>
+                <span>{{ prediction.patient_age }} Years</span>
+            </div>
+            <div class="d-flex mb-2">
+                <span class="fw-bold" style="width: 150px;">Smoking History:</span>
+                <span>{{ prediction.patient_smoking_history }}</span>
+            </div>
+            <div class="d-flex mb-2">
+                <span class="fw-bold" style="width: 150px;">Reported Symptoms:</span>
+                <span>{{ prediction.patient_symptoms }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assessment -->
+    <h5 style="color: #27795a; font-weight: 600; margin-bottom: 10px;">Assessment</h5>
+    <p class="text-dark mb-4" style="font-size: 0.95rem; line-height: 1.6;">
+        The patient presented with symptoms of {{ prediction.patient_symptoms }}.
+        A posterior-anterior chest radiograph was acquired and analyzed using the NeuroScan Deep Learning system
+        (ResNet50 Architecture, 91.4% Val Accuracy).
+        The model analyzed the lung fields for opacities, consolidations, and signs of pneumonia.
+    </p>
+
+    <!-- Diagnosis -->
+    <h5 style="color: #27795a; font-weight: 600; margin-bottom: 10px;">Diagnosis</h5>
+    <p class="text-dark mb-4" style="font-size: 0.95rem; line-height: 1.6;">
+        {% if prediction.prediction_result == 'Pneumonia' %}
+        Through radiological analysis, the AI model has detected opacities consistent with a diagnosis of <strong>{{
+            prediction.severity }} Pneumonia</strong>. The network assigned a confidence probability of {{
+        "%.1f"|format(prediction.confidence) }}%.
+        Specific regional analysis indicates that approximately {{ "%.0f"|format(prediction.right_lung_affected) }}% of
+        the right lung field and {{ "%.0f"|format(prediction.left_lung_affected) }}% of the left lung field demonstrate
+        abnormal radiopacity.
+        {% else %}
+        After thorough examination of the PA chest radiograph, no specific medical conditions or acute illnesses
+        consistent with structural pneumonia were identified.
+        The AI model indicates a healthy clinical status with normal lung fields and no obvious signs of consolidation
+        (Confidence: {{ "%.1f"|format(prediction.confidence) }}%).
+        {% endif %}
+    </p>
+
+    <!-- Medical Imaging -->
+    <h5 style="color: #27795a; font-weight: 600; margin-bottom: 15px;">Medical Imaging</h5>
+    <div class="row text-center mb-4" style="page-break-inside: avoid;">
+        <div class="col-6">
+            <p class="fw-bold mb-1" style="font-size: 0.85rem;">Original Chest X-Ray</p>
+            <img src="{{ url_for('static', filename='uploads/' + prediction.image_filename) }}"
+                style="width: 100%; border: 1px solid #ddd; max-height: 250px; object-fit: contain;">
+        </div>
+        <div class="col-6">
+            <p class="fw-bold mb-1" style="font-size: 0.85rem;">Grad-CAM Heatmap</p>
+            <img src="{{ url_for('static', filename='heatmaps/' + prediction.heatmap_filename) }}"
+                style="width: 100%; border: 1px solid #ddd; max-height: 250px; object-fit: contain;">
+        </div>
+    </div>
+
+    <!-- Recommendations / Prescription -->
+    <h5 style="color: #27795a; font-weight: 600; margin-bottom: 10px;">Prescription / Recommendations</h5>
+    <div class="text-dark mb-5" style="font-size: 0.95rem; line-height: 1.6; page-break-inside: avoid;">
+        {% if prediction.prediction_result == 'Pneumonia' %}
+        <ul style="padding-left: 20px;">
+            {% if prediction.severity == 'Severe' %}
+            <li><strong>Consultation:</strong> Seek emergency medical care immediately for definitive diagnosis and
+                treatment.</li>
+            <li><strong>Precautions:</strong> Immediate medical isolation, constant monitoring of oxygen saturation
+                (SpO2), and absolute bed rest.</li>
+            <li><strong>Follow-up:</strong> Hospitalization or intensive care may be required. Intravenous antibiotics
+                or oxygen therapy might be necessary.</li>
+            {% elif prediction.severity == 'Moderate' %}
+            <li><strong>Consultation:</strong> Consult a Pulmonologist or General Physician promptly for definitive
+                diagnosis and antibiotic/antiviral prescription.</li>
+            <li><strong>Precautions:</strong> Isolate from vulnerable individuals, monitor temperature and oxygen
+                saturation regularly, ensure adequate rest and hydration.</li>
+            <li><strong>Follow-up:</strong> Seek urgent emergency care if shortness of breath or acute chest pain
+                occurs.</li>
+            {% else %}
+            <li><strong>Consultation:</strong> Schedule a routine outpatient appointment with your doctor to review
+                findings.</li>
+            <li><strong>Precautions:</strong> Rest, stay hydrated, monitor your symptoms closely, and maintain good
+                hygiene.</li>
+            <li><strong>Follow-up:</strong> Routine outpatient follow-up is recommended. Over-the-counter or basic
+                prescription treatment may suffice.</li>
+            {% endif %}
+        </ul>
+        {% else %}
+        <p>No prescription is necessary at this time, as the patient is in good health with no identified medical
+            concerns via X-ray. Given the reported symptoms ('{{ prediction.patient_symptoms }}'), please continue to
+            monitor your health. Consult a general physician if symptoms persist or worsen. Maintain good hygiene and a
+            healthy lifestyle.</p>
+        {% endif %}
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center mt-5 pt-3 text-muted" style="font-size: 0.8rem; border-top: 1px solid #eee;">
+        <p class="mb-1">For inquiries and appointments, feel free to contact us.</p>
+        <p class="mb-1">phone: +1 (555) 123-4567, email: info@neuroscan-clinical.com</p>
+        <p>www.neuroscan-clinical.com</p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+    function downloadReport() {
+        // Temporarily display the printable layout
+        const printArea = document.getElementById('printableReport');
+        printArea.classList.remove('d-none');
+        printArea.style.display = 'block';
+
+        const opt = {
+            margin: 0.5,
+            filename: '{{ prediction.patient_name | replace(" ", "_") }}_Pneumonia_Report.pdf',
+            image: { type: 'jpeg', quality: 1.0 },
+            html2canvas: { scale: 2, useCORS: true, logging: false },
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(printArea).save().then(() => {
+            // Hide the printable layout completely again after generation
+            printArea.style.display = 'none';
+            printArea.classList.add('d-none');
+        });
+    }
+</script>
+{% endblock %}

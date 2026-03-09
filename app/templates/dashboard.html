@@ -1,0 +1,107 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row mt-5">
+    <div class="col-md-4">
+        <div class="glass p-4 mb-4 text-center">
+            <h2 class="mb-4">Welcome, {{ current_user.username }}</h2>
+            <div class="d-flex justify-content-center mb-4">
+                <i class="fa-solid fa-user-doctor fa-5x text-secondary"></i>
+            </div>
+            <a href="{{ url_for('main.upload') }}" class="btn btn-primary w-100 mb-2">
+                <i class="fa-solid fa-upload me-2"></i> Upload New X-Ray
+            </a>
+        </div>
+
+        <div class="row">
+            <div class="col-12 mb-3">
+                <div class="glass stat-card">
+                    <div class="text-muted mb-1">Total Scans</div>
+                    <div class="stat-value">{{ total }}</div>
+                </div>
+            </div>
+            <div class="col-6 mb-3">
+                <div class="glass stat-card">
+                    <div class="text-muted mb-1">Normal</div>
+                    <div class="fs-3 font-weight-bold text-success">{{ normal }}</div>
+                </div>
+            </div>
+            <div class="col-6 mb-3">
+                <div class="glass stat-card">
+                    <div class="text-muted mb-1">Pneumonia</div>
+                    <div class="fs-3 font-weight-bold text-danger">{{ pneumonia }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="glass p-4 h-100">
+            <h3 class="mb-4 d-flex justify-content-between align-items-center">
+                Prediction History
+                <span class="badge bg-secondary rounded-pill fs-6">{{ total }} Records</span>
+            </h3>
+
+            {% if predictions %}
+            <div class="table-responsive">
+                <table class="table table-hover table-borderless">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Image</th>
+                            <th>Prediction</th>
+                            <th>Confidence</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pred in predictions %}
+                        <tr>
+                            <td>{{ pred.date_posted.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                <i class="fa-regular fa-image me-2 text-muted"></i>
+                                {{ pred.image_filename[:15] }}...
+                            </td>
+                            <td>
+                                {% if pred.prediction_result == 'Pneumonia' %}
+                                <span class="badge badge-pneumonia px-2 py-1 rounded-pill">Pneumonia - {{ pred.severity
+                                    }}</span>
+                                {% else %}
+                                <span class="badge badge-normal px-2 py-1 rounded-pill">Normal</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress flex-grow-1 me-2"
+                                        style="height: 6px; background-color: rgba(255,255,255,0.1);">
+                                        <div class="progress-bar {% if pred.prediction_result == 'Pneumonia' %}bg-danger{% else %}bg-success{% endif %}"
+                                            role="progressbar" style="width: {{ pred.confidence }}%"
+                                            aria-valuenow="{{ pred.confidence }}" aria-valuemin="0" aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <small>{{ "%.1f"|format(pred.confidence) }}%</small>
+                                </div>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('main.result', pred_id=pred.id) }}"
+                                    class="btn btn-sm btn-outline-light">
+                                    <i class="fa-solid fa-eye"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fa-solid fa-folder-open fa-4x text-muted mb-3"></i>
+                <h4 class="text-muted">No Predictions Yet</h4>
+                <p class="text-muted mb-4">Upload a chest X-ray to see the results here.</p>
+                <a href="{{ url_for('main.upload') }}" class="btn btn-primary">Analyze First Image</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
