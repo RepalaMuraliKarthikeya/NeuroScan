@@ -9,9 +9,6 @@ import cv2
 MODEL_PATH = os.path.join(os.path.dirname(__file__), 'resnet_pneumonia_model.h5')
 _model = None
 
-# Fallback basic model if ResNet is missing
-DUMMY_MODEL_PATH = os.path.join(os.path.dirname(__file__), 'dummy_model.h5')
-
 def get_model():
     """Lazy load the Keras model"""
     global _model
@@ -20,11 +17,8 @@ def get_model():
             if os.path.exists(MODEL_PATH):
                 _model = tf.keras.models.load_model(MODEL_PATH)
                 print(f"Loaded production model from {MODEL_PATH}")
-            elif os.path.exists(DUMMY_MODEL_PATH):
-                _model = tf.keras.models.load_model(DUMMY_MODEL_PATH)
-                print("Loaded fallback dummy model.")
             else:
-                raise FileNotFoundError("No .h5 model found in the models directory. Please run a training script or the dummy model generator.")
+                raise FileNotFoundError("No 'resnet_pneumonia_model.h5' found in the models directory. Please run the training script.")
         except Exception as e:
             print(f"Error loading model: {e}")
             raise

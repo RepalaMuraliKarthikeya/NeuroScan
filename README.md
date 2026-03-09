@@ -35,15 +35,8 @@ pip install -r requirements.txt
 ```
 
 ### 2. Prepare the AI Model
-You have two options to prepare the underlying `.h5` model:
+Please prepare the underlying `.h5` model to begin X-Ray inference:
 
-**Option A (Fast - For Web App Testing)**
-Generates a dummy untrained architecture in seconds strictly to test the UI flow and Grad-CAM functionality.
-```bash
-python scripts/generate_dummy_model.py
-```
-
-**Option B (Full - Real Training)**
 1. Run `python scripts/prepare_data.py` to see dataset download instructions.
 2. Place your Kaggle images inside `dataset_split/`.
 3. Train the model: `python scripts/train_resnet.py` (May take hours depending on GPU).
