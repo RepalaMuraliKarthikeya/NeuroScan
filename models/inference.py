@@ -34,6 +34,77 @@ def preprocess_image(img_path, target_size=(224, 224)):
     img_array = img_array / 255.0
     return img_array
 
+def apply_lung_segmentation(img_array):
+    """
+    Extracts the lung region to remove ribs, background, and markers.
+    Uses OpenCV to create a bounding mask over the central chest cavity.
+    """
+    # Convert back to 0-255 uint8 format for OpenCV
+    img_uint8 = (img_array[0] * 255).astype(np.uint8)
+    gray = cv2.cvtColor(img_uint8, cv2.COLOR_RGB2GRAY)
+    
+    # Threshold to find the main body area (remove pure black background and noise)
+    _, binary = cv2.threshold(gray, 15, 255, cv2.THRESH_BINARY)
+    
+    # Morphological operations to clean up mask
+    kernel = np.ones((5,5), np.uint8)
+    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=3)
+    
+    # Find contours
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    mask = np.zeros_like(gray)
+    if contours:
+        # Keep the largest contour (the chest cavity / lungs)
+        largest_contour = max(contours, key=cv2.contourArea)
+        cv2.drawContours(mask, [largest_contour], -1, 255, thickness=cv2.FILLED)
+    else:
+        # Fallback if contour fails
+        mask.fill(255)
+        
+    # Smooth the mask edges slightly
+    mask = cv2.GaussianBlur(mask, (21, 21), 0)
+    
+    # Convert mask to 3 channels and normalize back to 0-1
+    mask_3d = cv2.merge([mask, mask, mask]).astype(np.float32) / 255.0
+    
+    # Apply the mask to original image, forcing background to pure black
+    segmented_img = img_array[0] * mask_3d
+    return np.expand_dims(segmented_img, axis=0)
+
+def predict_with_tta(model, img_array):
+    """
+    Test Time Augmentation (TTA).
+    Generates variations (original, flipped, zoomed, rotated) and averages the predictions.
+    This provides more stable and accurate predictions.
+    """
+    h, w = img_array[0].shape[:2]
+    
+    # 1. Original
+    img_orig = img_array[0]
+    
+    # 2. Horizontal Flip
+    img_flip = cv2.flip(img_orig, 1)
+    
+    # 3. Zoom (Crop center 80% and resize)
+    crop_h, crop_w = int(h * 0.1), int(w * 0.1)
+    img_zoom = img_orig[crop_h:h-crop_h, crop_w:w-crop_w]
+    img_zoom = cv2.resize(img_zoom, (w, h))
+    
+    # 4. Rotate 5 degrees
+    M = cv2.getRotationMatrix2D((w//2, h//2), 5, 1.0)
+    img_rot = cv2.warpAffine(img_orig, M, (w, h))
+    
+    # Stack into a batch
+    batch = np.array([img_orig, img_flip, img_zoom, img_rot])
+    
+    # Predict all 4 augmentations simultaneously
+    preds = model.predict(batch)
+    
+    # Average the confidence scores
+    avg_pred = np.mean(preds, axis=0, keepdims=True)
+    return avg_pred
+
 def find_last_conv_layer(model):
     """Dynamically find the last convolutional layer in the model for Grad-CAM."""
     # Specifically target ResNet50's final conv block output for accurate heatmaps
@@ -54,13 +125,14 @@ def process_and_predict(img_path, heatmap_save_path):
     """
     model = get_model()
     
-    # 1. Preprocess
+    # 1. Preprocess & Segment
     img_array = preprocess_image(img_path)
+    segmented_array = apply_lung_segmentation(img_array)
     
-    # 2. Predict
+    # 2. Predict with Test Time Augmentation (TTA)
     # Assuming output is sigmoid binary classification (0=Normal, 1=Pneumonia)
     # Adjust indexing if using softmax categorical
-    preds = model.predict(img_array)
+    preds = predict_with_tta(model, segmented_array)
     
     # Check shape to determine if it's binary or categorical
     if preds.shape[-1] == 1:
@@ -82,7 +154,8 @@ def process_and_predict(img_path, heatmap_save_path):
         last_conv_layer_name = find_last_conv_layer(model)
         
         # We drop the preprocess_input because Grad-CAM takes the raw inputs expected by the model
-        heatmap = make_gradcam_heatmap(img_array, model, last_conv_layer_name, pred_index=heatmap_pred_index)
+        # Use the segmented_array so Grad-CAM only highlights the lungs
+        heatmap = make_gradcam_heatmap(segmented_array, model, last_conv_layer_name, pred_index=heatmap_pred_index)
         
         # 4. Save Heatmap Overlay
         save_and_display_gradcam(img_path, heatmap, cam_path=heatmap_save_path)

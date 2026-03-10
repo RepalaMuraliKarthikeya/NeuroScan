@@ -23,9 +23,7 @@ def build_model():
     
     model = Model(inputs=base_model.input, outputs=predictions)
     
-    # 4. Compile the model
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    
+    # We do NOT compile the model here anymore, we will compile it at the start of each Stage
     return model
 
 def train_model():
@@ -75,13 +73,47 @@ def train_model():
     model = build_model()
     model.summary()
     
-    epochs = 15
-    print(f"\nStarting training for {epochs} epochs...")
+    # --- STAGE 1: Train Classifier Head (Backbone Frozen) ---
+    print("\n--- STAGE 1: Training Classifier Head (Backbone Frozen) ---")
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3), loss='binary_crossentropy', metrics=['accuracy'])
     
-    history = model.fit(
+    history_stage1 = model.fit(
         train_generator,
         steps_per_epoch=train_generator.samples // batch_size,
-        epochs=epochs,
+        epochs=5,
+        validation_data=val_generator,
+        validation_steps=val_generator.samples // batch_size
+    )
+    
+    # --- STAGE 2: Progressive Unfreezing (Top 50 layers) ---
+    print("\n--- STAGE 2: Progressive Unfreezing (Top 50 layers) ---")
+    for layer in model.layers[-50:]:
+        # Keep BatchNormalization layers frozen to prevent weight destruction
+        if not isinstance(layer, tf.keras.layers.BatchNormalization):
+            layer.trainable = True
+
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4), loss='binary_crossentropy', metrics=['accuracy'])
+    
+    history_stage2 = model.fit(
+        train_generator,
+        steps_per_epoch=train_generator.samples // batch_size,
+        epochs=10,
+        validation_data=val_generator,
+        validation_steps=val_generator.samples // batch_size
+    )
+    
+    # --- STAGE 3: Full Fine-tuning with Very Low Learning Rate ---
+    print("\n--- STAGE 3: Full Fine-Tuning (All layers) ---")
+    for layer in model.layers:
+        if not isinstance(layer, tf.keras.layers.BatchNormalization):
+            layer.trainable = True
+            
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5), loss='binary_crossentropy', metrics=['accuracy'])
+    
+    history_stage3 = model.fit(
+        train_generator,
+        steps_per_epoch=train_generator.samples // batch_size,
+        epochs=5,
         validation_data=val_generator,
         validation_steps=val_generator.samples // batch_size
     )
