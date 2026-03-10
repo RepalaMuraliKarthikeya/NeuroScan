@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.applications import ResNet50
@@ -41,12 +42,14 @@ def train_model():
         return
         
     # Data preprocessing and augmentation
-    # Using rescale=1./255, small rotation, zoom, and horizontal flip for training
+    # Using rescale=1./255, plus geometric and photometric augmentations
     train_datagen = ImageDataGenerator(
         rescale=1./255,
-        rotation_range=10,
-        zoom_range=0.1,
-        horizontal_flip=True
+        rotation_range=15,
+        zoom_range=0.2,
+        horizontal_flip=True,
+        brightness_range=[0.8, 1.2],
+        channel_shift_range=10.0
     )
     
     # Validation data should only be rescaled, not augmented
@@ -73,6 +76,26 @@ def train_model():
     model = build_model()
     model.summary()
     
+    # Calculate Class Imbalance Weights (Pneumonia vs Normal)
+    normal_cnt = len(os.listdir(os.path.join(train_dir, 'NORMAL')))
+    pneumonia_cnt = len(os.listdir(os.path.join(train_dir, 'PNEUMONIA')))
+    total = normal_cnt + pneumonia_cnt
+    class_weight = {
+        0: (1 / normal_cnt) * (total / 2.0),
+        1: (1 / pneumonia_cnt) * (total / 2.0)
+    }
+    
+    models_dir = os.path.join(base_dir, 'models')
+    os.makedirs(models_dir, exist_ok=True)
+    model_save_path = os.path.join(models_dir, 'resnet_pneumonia_model.h5')
+    
+    # Advanced Dynamic Callbacks
+    callbacks = [
+        tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, min_lr=1e-7, verbose=1),
+        tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, verbose=1),
+        tf.keras.callbacks.ModelCheckpoint(filepath=model_save_path, monitor='val_accuracy', save_best_only=True, verbose=1)
+    ]
+
     # --- STAGE 1: Train Classifier Head (Backbone Frozen) ---
     print("\n--- STAGE 1: Training Classifier Head (Backbone Frozen) ---")
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3), loss='binary_crossentropy', metrics=['accuracy'])
@@ -80,9 +103,11 @@ def train_model():
     history_stage1 = model.fit(
         train_generator,
         steps_per_epoch=train_generator.samples // batch_size,
-        epochs=5,
+        epochs=10,
         validation_data=val_generator,
-        validation_steps=val_generator.samples // batch_size
+        validation_steps=val_generator.samples // batch_size,
+        class_weight=class_weight,
+        callbacks=callbacks
     )
     
     # --- STAGE 2: Progressive Unfreezing (Top 50 layers) ---
@@ -97,9 +122,11 @@ def train_model():
     history_stage2 = model.fit(
         train_generator,
         steps_per_epoch=train_generator.samples // batch_size,
-        epochs=10,
+        epochs=20,
         validation_data=val_generator,
-        validation_steps=val_generator.samples // batch_size
+        validation_steps=val_generator.samples // batch_size,
+        class_weight=class_weight,
+        callbacks=callbacks
     )
     
     # --- STAGE 3: Full Fine-tuning with Very Low Learning Rate ---
@@ -113,18 +140,14 @@ def train_model():
     history_stage3 = model.fit(
         train_generator,
         steps_per_epoch=train_generator.samples // batch_size,
-        epochs=5,
+        epochs=20,
         validation_data=val_generator,
-        validation_steps=val_generator.samples // batch_size
+        validation_steps=val_generator.samples // batch_size,
+        class_weight=class_weight,
+        callbacks=callbacks
     )
     
-    # Save the trained model
-    models_dir = os.path.join(base_dir, 'models')
-    os.makedirs(models_dir, exist_ok=True)
-    model_save_path = os.path.join(models_dir, 'resnet_pneumonia_model.h5')
-    
-    model.save(model_save_path)
-    print(f"\nTraining complete! Model saved successfully to:")
+    print(f"\nTraining complete! Best accuracy weights dynamically restored and saved via Checkpoint to:")
     print(f"-> {model_save_path}")
 
 if __name__ == '__main__':
