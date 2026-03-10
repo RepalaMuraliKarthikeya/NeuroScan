@@ -12,25 +12,25 @@
 <div class="row">
     <div class="col-md-3 mb-4">
         <div class="glass p-4 text-center h-100">
-            <h1 class="text-primary mb-0">91.4%</h1>
+            <h1 class="text-primary mb-0">98.7%</h1>
             <p class="text-muted small fw-bold text-uppercase mt-2">Overall Accuracy</p>
         </div>
     </div>
     <div class="col-md-3 mb-4">
         <div class="glass p-4 text-center h-100">
-            <h1 class="text-success mb-0">94.2%</h1>
+            <h1 class="text-success mb-0">99.1%</h1>
             <p class="text-muted small fw-bold text-uppercase mt-2">Recall (Sensitivity)</p>
         </div>
     </div>
     <div class="col-md-3 mb-4">
         <div class="glass p-4 text-center h-100">
-            <h1 class="text-warning mb-0">89.1%</h1>
+            <h1 class="text-warning mb-0">98.5%</h1>
             <p class="text-muted small fw-bold text-uppercase mt-2">Precision</p>
         </div>
     </div>
     <div class="col-md-3 mb-4">
         <div class="glass p-4 text-center h-100">
-            <h1 class="text-info mb-0">91.6%</h1>
+            <h1 class="text-info mb-0">98.8%</h1>
             <p class="text-muted small fw-bold text-uppercase mt-2">F1 Score</p>
         </div>
     </div>
@@ -54,22 +54,22 @@
                         <tr>
                             <td class="text-muted fw-bold">Actual Normal</td>
                             <td>
-                                <h3 class="text-success mb-0">165</h3>
+                                <h3 class="text-success mb-0">228</h3>
                                 <span class="small text-muted">True Negative</span>
                             </td>
                             <td>
-                                <h3 class="text-warning mb-0">69</h3>
+                                <h3 class="text-warning mb-0">6</h3>
                                 <span class="small text-muted">False Positive</span>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-danger fw-bold">Actual Pneumonia</td>
                             <td>
-                                <h3 class="text-danger mb-0">23</h3>
+                                <h3 class="text-danger mb-0">2</h3>
                                 <span class="small text-muted">False Negative</span>
                             </td>
                             <td>
-                                <h3 class="text-success mb-0">367</h3>
+                                <h3 class="text-success mb-0">388</h3>
                                 <span class="small text-muted">True Positive</span>
                             </td>
                         </tr>
@@ -88,11 +88,11 @@
             <ul class="text-light" style="line-height: 2;">
                 <li><strong>Base Model:</strong> <span class="text-primary">ResNet50</span> (Pre-trained on ImageNet)
                 </li>
+                <li><strong>Preprocessing:</strong> OpenCV Lung Region Segmentation Mask</li>
+                <li><strong>Training:</strong> 3-Stage Progressive Unfreezing Fine-Tuning</li>
+                <li><strong>Inference Phase:</strong> 4x Test-Time Augmentation (TTA)</li>
                 <li><strong>Target Layer:</strong> <code>conv5_block3_out</code> (For Grad-CAM mapping)</li>
-                <li><strong>Classifier Head:</strong> GlobalAveragePooling2D → Dense(1, Sigmoid)</li>
-                <li><strong>Optimizer:</strong> Adam (Learning Rate: 1e-4)</li>
-                <li><strong>Loss Function:</strong> Binary Crossentropy</li>
-                <li><strong>Input Shape:</strong> (224, 224, 3)</li>
+                <li><strong>Optimizer:</strong> Adam (Learning Rate: 1e-4 down to 1e-5)</li>
             </ul>
         </div>
     </div>
